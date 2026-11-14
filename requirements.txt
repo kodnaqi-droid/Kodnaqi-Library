@@ -4,5 +4,3 @@ pypdf==4.0.1
 pg8000==1.31.2
 vercel-blob==0.1.0
 requests>=2.32.3
-itsdangerous==2.1.2
-python-dotenv==1.0.1
