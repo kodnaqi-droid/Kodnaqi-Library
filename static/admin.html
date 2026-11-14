@@ -6,446 +6,102 @@
 <link rel="stylesheet" href="/static/style.css">
 <style>
   .tabs{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
-  .tabs button{width:auto;flex:1;padding:9px 10px;background:var(--card);color:var(--text);border:1px solid var(--border);font-weight:600;font-size:12.5px;border-radius:10px}
-  .tabs button.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
-  .codes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
-  .codes code{background:var(--input);border:1px solid var(--border);padding:10px;border-radius:8px;text-align:center;font-family:monospace;font-size:15px;letter-spacing:2px;color:var(--text)}
-  .warn{background:rgba(242,169,59,.15);border:1px solid var(--accent);padding:12px;border-radius:10px;margin:10px 0;font-size:13px;line-height:1.7}
-  .log-row{font-size:12px;padding:6px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
-  .log-row time{color:var(--muted)}
-  hr{border:none;border-top:1px solid var(--border);margin:18px 0}
-  .file-info{font-size:12px;color:var(--accent);margin:6px 0;min-height:16px;word-break:break-all}
-  .prog{height:8px;background:var(--input);border-radius:10px;overflow:hidden;margin:8px 0;display:none}
-  .prog-bar{height:100%;background:var(--accent2);width:0%;transition:width .2s}
-  .upmsg{font-size:13px;margin-top:8px;min-height:18px}
-  .upmsg.ok{color:var(--ok)}
-  .upmsg.err{color:#e05c5c}
-  button:disabled{opacity:.5;cursor:wait}
+  .tabs button{flex:1;padding:9px;font-size:12px;border-radius:10px}
+  .tabs button.active{background:var(--accent2);color:#fff}
+  .warn{background:rgba(242,169,59,.15);border:1px solid var(--accent);padding:12px;border-radius:10px;margin:10px 0;font-size:13px}
 </style>
 <script>
 document.documentElement.dataset.theme = localStorage.getItem('kq-theme') || 'dark';
-var l = localStorage.getItem('kq-lang') || 'ar';
-document.documentElement.lang = l; document.documentElement.dir = l==='ar'?'rtl':'ltr';
 </script>
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar">
-    <b style="color:var(--accent)">KodNaqi Admin</b>
-    <div class="ctrl">
-      <button onclick="toggleTheme()" id="themeBtn">🌙</button>
-      <button onclick="toggleLang()" id="langBtn">EN</button>
-    </div>
-  </div>
+  <div class="topbar"><b style="color:var(--accent)">KodNaqi Admin</b></div>
   <div id="root"></div>
 </div>
 <script>
-const T = {
-  ar: {pass:"كلمة السر", email:"البريد الإلكتروني", phone:"رقم الهاتف (اختياري)",
-       setup_title:"إعداد حساب الأدمن (أول مرة فقط)",
-       setup_note:"سيتم إنشاء 10 رموز استرداد — احفظها في مكان آمن.",
-       setup_btn:"إنشاء الحساب", login_btn:"دخول", login_title:"دخول الأدمن",
-       forgot:"نسيت كلمة السر؟", otp_title:"رمز التحقق", otp_note:"أدخل الرمز من بريدك",
-       otp_btn:"تحقق", recovery_title:"استرداد الحساب",
-       recovery_note:"اختر طريقة: رابط بريد أو رمز استرداد.",
-       send_link:"إرسال رابط للبريد", use_code:"استخدام رمز الاسترداد",
-       new_pass:"كلمة السر الجديدة", confirm_pass:"تأكيد كلمة السر", reset_btn:"تعيين",
-       codes_saved:"حفظت هذه الرموز",
-       up_new:"رفع كتاب", title:"عنوان الكتاب", author:"المؤلف",
-       subject:"التخصص", upload:"رفع الكتاب", new_key:"مفتاح طالب",
-       sname:"اسم الطالب", sphone:"رقم الهاتف", skey:"المفتاح (مثال: KQ-2026-001)",
-       create:"إنشاء", books:"الكتب", keys:"المفاتيح",
-       settings:"الإعدادات", audit:"السجل", del:"حذف", toggle:"تبديل",
-       logout:"خروج", wrong:"خطأ", empty:"لا شيء",
-       change_pw:"تغيير كلمة السر", current_pw:"كلمة السر الحالية",
-       regen:"إعادة إنشاء رموز الاسترداد", regen_note:"ستُلغى القديمة وتظهر 10 جديدة.",
-       twofa:"تفعيل التحقق بخطوتين", email_cfg:"إعداد البريد (SMTP)",
-       smtp_user:"البريد المرسل منه", smtp_pass:"App Password",
-       smtp_host:"SMTP Host", smtp_port:"المنفذ", test_send:"حفظ واختبار",
-       email_hint:"لـ Gmail: فعّل 2FA ثم أنشئ App Password.",
-       remaining_codes:"رموز استرداد متبقية", save_codes:"احفظ هذه الرموز الآن!",
-       stopped:"(موقوف)", need_email:"أعدّ البريد أولاً",
-       pick_first:"اختر ملف PDF أولاً", not_pdf:"الملف ليس PDF",
-       uploading:"جاري الرفع", uploaded:"تم الرفع بنجاح", failed:"فشل الرفع",
-       session_expired:"انتهت الجلسة — سجّل الدخول من جديد"},
-  en: {pass:"Password", email:"Email", phone:"Phone (optional)",
-       setup_title:"Admin account setup (first time only)",
-       setup_note:"10 recovery codes will be generated — save them safely.",
-       setup_btn:"Create account", login_btn:"Login", login_title:"Admin login",
-       forgot:"Forgot password?", otp_title:"Verification code", otp_note:"Enter the code from your email",
-       otp_btn:"Verify", recovery_title:"Account recovery",
-       recovery_note:"Choose method: email link or recovery code.",
-       send_link:"Send email link", use_code:"Use recovery code",
-       new_pass:"New password", confirm_pass:"Confirm password", reset_btn:"Set",
-       codes_saved:"I saved these codes",
-       up_new:"Upload book", title:"Book title", author:"Author",
-       subject:"Subject", upload:"Upload book", new_key:"Student key",
-       sname:"Student name", sphone:"Phone", skey:"Key (e.g. KQ-2026-001)",
-       create:"Create", books:"Books", keys:"Keys",
-       settings:"Settings", audit:"Audit log", del:"Delete", toggle:"Toggle",
-       logout:"Logout", wrong:"Error", empty:"Empty",
-       change_pw:"Change password", current_pw:"Current password",
-       regen:"Regenerate recovery codes", regen_note:"Old codes invalidated, 10 new shown once.",
-       twofa:"Enable 2FA", email_cfg:"Email setup (SMTP)",
-       smtp_user:"From email", smtp_pass:"App Password",
-       smtp_host:"SMTP Host", smtp_port:"Port", test_send:"Save & test",
-       email_hint:"Gmail: enable 2FA then create an App Password.",
-       remaining_codes:"Remaining recovery codes", save_codes:"Save these codes now!",
-       stopped:"(disabled)", need_email:"Set up email first",
-       pick_first:"Pick a PDF file first", not_pdf:"Not a PDF file",
-       uploading:"Uploading", uploaded:"Uploaded successfully", failed:"Upload failed",
-       session_expired:"Session expired — login again"}
-};
-let lang = localStorage.getItem('kq-lang') || 'ar';
-const t = k => T[lang][k] || k;
+let admin = false;
+async function api(u,o={}){o.credentials='same-origin';if(o.json){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(o.json);delete o.json}const r=await fetch(u,o);return r.json();}
 
-function toggleTheme(){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=th;localStorage.setItem('kq-theme',th);themeBtn.textContent=th==='dark'?'☀️':'🌙';}
-function toggleLang(){lang=lang==='ar'?'en':'ar';localStorage.setItem('kq-lang',lang);document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';langBtn.textContent=lang==='ar'?'EN':'ع';boot();}
-
-async function api(u,o={}){o.credentials='same-origin';if(o.json){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(o.json);delete o.json}const r=await fetch(u,o);const j=await r.json().catch(()=>({}));if(r.status===401&&j.auth){renderLogin();throw new Error('401');}return j;}
-
-let boot_status=null, pendingCodes=null, resetToken=null, curTab='books';
-
-async function boot(){
-  resetToken = new URLSearchParams(location.search).get('reset');
-  try { boot_status = await api('/api/admin/status'); } catch(e) { boot_status = {}; }
-  if (resetToken) { renderReset(); return; }
-  if (boot_status.setup_needed) renderSetup();
-  else if (boot_status.session_active) renderMain();
-  else renderLogin();
-}
-
-function renderSetup(){
-  root.innerHTML = `
-    <h2>${t('setup_title')}</h2>
+function loginView(){
+  document.getElementById('root').innerHTML = `
+    <h2>دخول الأدمن</h2>
     <div class="card">
-      <div class="warn">${t('setup_note')}</div>
-      <input id="email" type="email" placeholder="${t('email')}">
-      <input id="phone" placeholder="${t('phone')}">
-      <input id="pw"    type="password" placeholder="${t('pass')} (8+ chars)">
-      <input id="pw2"   type="password" placeholder="${t('confirm_pass')}">
-      <button onclick="doSetup()">${t('setup_btn')}</button>
-      <div id="m" class="err"></div>
-    </div>`;
-}
-async function doSetup(){
-  if (pw.value !== pw2.value) { document.getElementById('m').textContent='كلمتا السر غير متطابقتين'; return; }
-  const r = await api('/api/admin/setup',{method:'POST',json:{email:email.value,phone:phone.value,password:pw.value}});
-  if (r.ok) { pendingCodes = r.recovery_codes; if(boot_status) boot_status.session_active=true; renderCodes(); }
-  else document.getElementById('m').textContent = r.error || t('wrong');
-}
-
-function renderCodes(){
-  root.innerHTML = `
-    <h2>${t('remaining_codes')}</h2>
-    <div class="warn">${t('save_codes')}</div>
-    <div class="codes">${pendingCodes.map(c=>`<code>${c}</code>`).join('')}</div>
-    <button onclick="codesConfirmed()">${t('codes_saved')}</button>`;
-}
-function codesConfirmed(){
-  pendingCodes = null;
-  if (boot_status && boot_status.session_active) renderMain();
-  else renderLogin();
-}
-
-function renderLogin(){
-  root.innerHTML = `
-    <h2>${t('login_title')}</h2>
-    <div class="card">
-      <input id="email" type="email" placeholder="${t('email')}">
-      <input id="pw"    type="password" placeholder="${t('pass')}">
-      <button onclick="doLogin()">${t('login_btn')}</button>
-      <div id="m" class="err"></div>
-      <div style="text-align:center;margin-top:12px">
-        <a href="#" onclick="renderForgot();return false" style="color:var(--accent2);font-size:13px">${t('forgot')}</a>
-      </div>
+      <input type="password" id="pw" placeholder="كلمة السر (SECRET_KEY)">
+      <button onclick="doLogin()">دخول</button>
     </div>`;
 }
 async function doLogin(){
-  const r = await api('/api/admin/login',{method:'POST',json:{email:email.value,password:pw.value}});
-  if (r.ok && r.otp_required) { renderOtp(); return; }
-  if (r.ok) { boot_status.session_active=true; renderMain(); }
-  else document.getElementById('m').textContent = r.error || t('wrong');
+  const r = await api('/api/admin/login',{method:'POST',json:{password:document.getElementById('pw').value}});
+  if(r.ok){admin=true;mainView();}else{alert('كلمة سر خاطئة');}
 }
 
-function renderOtp(){
-  root.innerHTML = `
-    <h2>${t('otp_title')}</h2>
-    <div class="card">
-      <p class="muted">${t('otp_note')}</p>
-      <input id="code" inputmode="numeric" maxlength="6" style="text-align:center;font-size:22px;letter-spacing:6px" placeholder="000000">
-      <button onclick="doOtp()">${t('otp_btn')}</button>
-      <div id="m" class="err"></div>
-    </div>`;
-}
-async function doOtp(){
-  const r = await api('/api/admin/verify_otp',{method:'POST',json:{code:code.value}});
-  if (r.ok) { boot_status.session_active=true; renderMain(); }
-  else document.getElementById('m').textContent = r.error || t('wrong');
-}
-
-function renderForgot(){
-  root.innerHTML = `
-    <h2>${t('recovery_title')}</h2>
-    <div class="card">
-      <p class="muted">${t('recovery_note')}</p>
-      <h3>${t('send_link')}</h3>
-      <input id="email" type="email" placeholder="${t('email')}">
-      <button onclick="doForgotEmail()">${t('send_link')}</button>
-      <div id="m1" class="err"></div>
-      <hr>
-      <h3>${t('use_code')}</h3>
-      <input id="code" placeholder="Recovery Code">
-      <input id="npw" type="password" placeholder="${t('new_pass')}">
-      <input id="npw2" type="password" placeholder="${t('confirm_pass')}">
-      <button onclick="doForgotCode()">${t('reset_btn')}</button>
-      <div id="m2" class="err"></div>
-      <div style="text-align:center;margin-top:12px">
-        <a href="#" onclick="renderLogin();return false" style="color:var(--accent2);font-size:13px">${t('login_btn')}</a>
-      </div>
-    </div>`;
-}
-async function doForgotEmail(){
-  const r = await api('/api/admin/forgot',{method:'POST',json:{email:email.value}});
-  const el = document.getElementById('m1');
-  if (r.ok) el.innerHTML = '<span style="color:var(--ok)">تم الإرسال إن وُجد الحساب</span>';
-  else el.textContent = r.hint || r.error || t('wrong');
-}
-async function doForgotCode(){
-  if (npw.value !== npw2.value) { document.getElementById('m2').textContent='كلمتا السر غير متطابقتين'; return; }
-  const r = await api('/api/admin/reset_password',{method:'POST',json:{recovery_code:code.value,password:npw.value}});
-  if (r.ok) { alert('تم. رموز متبقية: '+r.remaining); renderLogin(); }
-  else document.getElementById('m2').textContent = r.error || t('wrong');
-}
-
-function renderReset(){
-  root.innerHTML = `
-    <h2>${t('new_pass')}</h2>
-    <div class="card">
-      <input id="pw"  type="password" placeholder="${t('new_pass')}">
-      <input id="pw2" type="password" placeholder="${t('confirm_pass')}">
-      <button onclick="doReset()">${t('reset_btn')}</button>
-      <div id="m" class="err"></div>
-    </div>`;
-}
-async function doReset(){
-  if (pw.value !== pw2.value) { document.getElementById('m').textContent='كلمتا السر غير متطابقتين'; return; }
-  const r = await api('/api/admin/reset_password',{method:'POST',json:{token:resetToken,password:pw.value}});
-  if (r.ok) { alert('تم'); history.replaceState({},'','/static/admin.html'); renderLogin(); }
-  else document.getElementById('m').textContent = r.error || t('wrong');
-}
-
-function renderMain(){
-  root.innerHTML = `
+function mainView(){
+  document.getElementById('root').innerHTML = `
     <div class="tabs">
-      <button class="${curTab==='books'?'active':''}"    onclick="curTab='books';renderMain()">${t('books')}</button>
-      <button class="${curTab==='upload'?'active':''}"   onclick="curTab='upload';renderMain()">${t('up_new')}</button>
-      <button class="${curTab==='keys'?'active':''}"     onclick="curTab='keys';renderMain()">${t('keys')}</button>
-      <button class="${curTab==='settings'?'active':''}" onclick="curTab='settings';renderMain()">${t('settings')}</button>
-      <button class="${curTab==='audit'?'active':''}"    onclick="curTab='audit';renderMain()">${t('audit')}</button>
-      <button onclick="doLogout()">${t('logout')}</button>
+      <button class="active" onclick="loadKeys()">المفاتيح</button>
+      <button onclick="loadBooks()">الكتب</button>
     </div>
     <div id="panel"></div>`;
-  if (curTab==='books')    loadBooksPanel();
-  if (curTab==='upload')   renderUploadPanel();
-  if (curTab==='keys')     loadKeysPanel();
-  if (curTab==='settings') renderSettingsPanel();
-  if (curTab==='audit')    loadAuditPanel();
+  loadKeys();
 }
-async function doLogout(){ await api('/api/admin/logout',{method:'POST'}); boot_status.session_active=false; renderLogin(); }
 
-function renderUploadPanel(){
+async function loadKeys(){
   document.getElementById('panel').innerHTML = `
     <div class="card">
-      <input id="title"   placeholder="${t('title')}">
-      <input id="author"  placeholder="${t('author')}">
-      <input id="subject" placeholder="${t('subject')}">
-      <label class="muted" style="font-size:12px;display:block;margin-top:10px">📄 ${t('up_new')} (PDF)</label>
-      <input type="file" id="pdf" accept="application/pdf,.pdf"
-             onchange="onFilePicked(this)">
-      <div id="fname" class="file-info"></div>
-      <div class="prog" id="prog"><div class="prog-bar" id="progBar"></div></div>
-      <button id="upbtn" onclick="doUpload()">${t('upload')}</button>
-      <div id="m" class="upmsg"></div>
+      <h3>إنشاء مفتاح طالب</h3>
+      <input id="sname" placeholder="اسم الطالب">
+      <input id="sphone" placeholder="رقم الهاتف">
+      <input id="skey" placeholder="المفتاح (مثال: KQ-001)">
+      <button onclick="createKey()">إنشاء المفتاح</button>
+      <div id="msg" style="margin-top:10px;font-weight:bold"></div>
     </div>`;
 }
-function onFilePicked(input){
-  const el = document.getElementById('fname');
-  const f = input.files && input.files[0];
-  if (!f) { el.textContent = ''; return; }
-  el.textContent = `📄 ${f.name}  —  ${(f.size/1048576).toFixed(2)} MB`;
-  const msg = document.getElementById('m');
-  msg.textContent = ''; msg.className = 'upmsg';
-}
 
-async function doUpload(){
-  const fileInput = document.getElementById('pdf');
-  const msg  = document.getElementById('m');
-  const btn  = document.getElementById('upbtn');
-  const f = fileInput.files && fileInput.files[0];
-
-  if (!f) {
-    msg.textContent = '⚠️ اختر ملفاً أولاً'; msg.className = 'upmsg err'; return;
-  }
-
-  const fd = new FormData();
-  fd.append('pdf', f);
-  fd.append('title', (document.getElementById('title').value || f.name));
-  fd.append('author', document.getElementById('author').value);
-  fd.append('subject', document.getElementById('subject').value);
-
-  btn.disabled = true;
-  msg.className = 'upmsg';
-  msg.textContent = '⏳ جاري الرفع... يرجى عدم إغلاق الشاشة';
-
-  try {
-    const res = await fetch('/api/admin/upload', {
-      method: 'POST',
-      body: fd,
-      credentials: 'same-origin'
-    });
-    const j = await res.json();
-    
-    if (res.status === 401) {
-      msg.className = 'upmsg err'; msg.textContent = '⚠️ انتهت الجلسة، سجل الدخول مجدداً';
-      setTimeout(renderLogin, 1500);
-    } else if (res.ok && j.ok) {
-      msg.className = 'upmsg ok';
-      msg.textContent = `✅ تم الرفع بنجاح — ${(j.size/1048576).toFixed(1)} MB`;
-      fileInput.value = ''; document.getElementById('fname').textContent = '';
-      document.getElementById('title').value = '';
-    } else {
-      msg.className = 'upmsg err';
-      msg.textContent = '❌ فشل الرفع: ' + (j.error || ('خطأ ' + res.status));
-    }
-  } catch (err) {
-    msg.className = 'upmsg err';
-    msg.textContent = '❌ Network Error: ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function loadBooksPanel(){
-  const bs = await api('/api/admin/books');
-  document.getElementById('panel').innerHTML = bs.length ? bs.map(b=>`
-    <div class="card"><b>${b.title}</b>
-      <small> ${b.subject} • ${(b.size/1048576).toFixed(1)}MB • ${b.pages}p</small>
-      <button class="red" style="margin-top:8px" onclick="doDeleteBook('${b.id}')">${t('del')}</button>
-    </div>`).join('') : `<div class="card">${t('empty')}</div>`;
-}
-async function doDeleteBook(id){ if(!confirm('حذف؟'))return; await api('/api/admin/book/'+id,{method:'DELETE'}); loadBooksPanel(); }
-
-async function loadKeysPanel(){
-  const ks = await api('/api/admin/keys');
-  const items = Object.entries(ks);
-  document.getElementById('panel').innerHTML = `
-    <div class="card">
-      <h3>${t('new_key')}</h3>
-      <input id="sname"  placeholder="${t('sname')}">
-      <input id="sphone" placeholder="${t('sphone')}">
-      <input id="skey"   placeholder="${t('skey')}">
-      <button onclick="doAddKey()">${t('create')}</button>
-      <div id="m" class="err"></div>
-    </div>
-    ${items.length ? items.map(([k,v])=>`
-      <div class="card"><b>${k}</b> — ${v.name} ${v.phone||''} ${v.active?'':`<small>${t('stopped')}</small>`}
-        <button class="off" style="margin-top:8px" onclick="doToggleKey('${k}')">${t('toggle')}</button></div>
-    `).join('') : `<div class="card">${t('empty')}</div>`}`;
-}
-async function doAddKey(){
+async function createKey(){
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'جاري الإنشاء...';
   const r = await api('/api/admin/keys',{method:'POST',json:{
     key: document.getElementById('skey').value,
     name: document.getElementById('sname').value,
     phone: document.getElementById('sphone').value
   }});
-  if (r.ok) loadKeysPanel();
-  else document.getElementById('m').textContent = r.error || t('wrong');
+  btn.disabled = false; btn.textContent = 'إنشاء المفتاح';
+  const msg = document.getElementById('msg');
+  if(r.ok){ msg.style.color = '#2fbf71'; msg.textContent = '✅ تم إنشاء المفتاح بنجاح!'; }
+  else { msg.style.color = '#e05c5c'; msg.textContent = '❌ خطأ: ' + (r.error||''); }
 }
-async function doToggleKey(k){ await api('/api/admin/toggle_key',{method:'POST',json:{key:k}}); loadKeysPanel(); }
 
-async function renderSettingsPanel(){
-  const info = await api('/api/admin/recovery_info');
+function loadBooks(){
   document.getElementById('panel').innerHTML = `
     <div class="card">
-      <h3>${t('change_pw')}</h3>
-      <input id="cpw" type="password" placeholder="${t('current_pw')}">
-      <input id="npw" type="password" placeholder="${t('new_pass')}">
-      <input id="npw2" type="password" placeholder="${t('confirm_pass')}">
-      <button onclick="doChangePw()">${t('reset_btn')}</button>
-      <div id="m1" class="err"></div>
-    </div>
-    <div class="card">
-      <h3>${t('regen')} — <small class="muted">${t('remaining_codes')}: ${info.remaining}</small></h3>
-      <p class="muted" style="font-size:12px">${t('regen_note')}</p>
-      <input id="rpw" type="password" placeholder="${t('current_pw')}">
-      <button onclick="doRegen()">${t('regen')}</button>
-      <div id="m2" class="err"></div>
-    </div>
-    <div class="card">
-      <h3>${t('twofa')}</h3>
-      <input id="tpw" type="password" placeholder="${t('current_pw')}">
-      <button onclick="doToggle2fa(true)">${t('twofa')}</button>
-      <button class="off" style="margin-top:6px" onclick="doToggle2fa(false)">${t('toggle')}</button>
-      <div id="m3" class="err"></div>
-    </div>
-    <div class="card">
-      <h3>${t('email_cfg')}</h3>
-      <p class="muted" style="font-size:12px">${t('email_hint')}</p>
-      <input id="epw" type="password" placeholder="${t('current_pw')}">
-      <input id="ehost" value="smtp.gmail.com" placeholder="${t('smtp_host')}">
-      <input id="eport" value="465" placeholder="${t('smtp_port')}">
-      <input id="euser" placeholder="${t('smtp_user')}">
-      <input id="epass" type="password" placeholder="${t('smtp_pass')}">
-      <button onclick="doEmailConfig()">${t('test_send')}</button>
-      <div id="m4" class="err"></div>
+      <div class="warn">⚠️ ملاحظة هامة: منصة Vercel لا تقبل رفع ملفات أكبر من 4 ميجا من المتصفح. لرفع كتبك الكبيرة، استخدم سكربت الترمكس.</div>
+      <h3>رفع كتاب (للملفات الصغيرة فقط)</h3>
+      <input id="title" placeholder="عنوان الكتاب">
+      <input type="file" id="pdf" accept="application/pdf">
+      <button onclick="uploadBook()">رفع</button>
+      <div id="msg" style="margin-top:10px"></div>
     </div>`;
 }
-async function doChangePw(){
-  if (document.getElementById('npw').value !== document.getElementById('npw2').value) {
-    document.getElementById('m1').textContent='كلمتا السر غير متطابقتين'; return;
+
+async function uploadBook(){
+  const f = document.getElementById('pdf').files[0];
+  const msg = document.getElementById('msg');
+  if(!f) { msg.textContent = 'اختر ملفاً'; return; }
+  if(f.size > 4.5 * 1024 * 1024) {
+    msg.style.color = '#e05c5c';
+    msg.textContent = '❌ الملف كبير جداً! استخدم سكربت الترمكس لرفعه.';
+    return;
   }
-  const r = await api('/api/admin/change_password',{method:'POST',json:{
-    current_password: document.getElementById('cpw').value,
-    new_password: document.getElementById('npw').value
-  }});
-  document.getElementById('m1').innerHTML = r.ok?'<span style="color:var(--ok)">تم</span>':'خطأ: '+(r.error||'');
-}
-async function doRegen(){
-  const r = await api('/api/admin/regenerate_recovery',{method:'POST',json:{password:document.getElementById('rpw').value}});
-  if (r.ok){ pendingCodes=r.codes; renderCodes(); }
-  else document.getElementById('m2').textContent = r.error || t('wrong');
-}
-async function doToggle2fa(en){
-  const r = await api('/api/admin/toggle_2fa',{method:'POST',json:{password:document.getElementById('tpw').value,enable:en}});
-  if (r.ok) document.getElementById('m3').innerHTML='<span style="color:var(--ok)">تم</span>';
-  else if (r.error==='no_email') document.getElementById('m3').textContent = t('need_email');
-  else document.getElementById('m3').textContent = r.error || t('wrong');
-}
-async function doEmailConfig(){
-  const r = await api('/api/admin/email_config',{method:'POST',json:{
-    password:   document.getElementById('epw').value,
-    smtp_host:  document.getElementById('ehost').value,
-    smtp_port:  parseInt(document.getElementById('eport').value),
-    smtp_user:  document.getElementById('euser').value,
-    smtp_pass:  document.getElementById('epass').value
-  }});
-  document.getElementById('m4').innerHTML = r.ok
-    ? '<span style="color:var(--ok)">تم — '+(r.test_msg||'')+'</span>'
-    : 'خطأ: '+(r.error||r.test_msg||'');
-}
-async function loadAuditPanel(){
-  const logs = await api('/api/admin/audit');
-  document.getElementById('panel').innerHTML = `<div class="card">${logs.length?logs.map(l=>`
-    <div class="log-row">
-      <span><b>${l.action}</b> ${l.detail?'— '+l.detail:''} <small class="muted">${l.ip||''}</small></span>
-      <time>${new Date(l.ts*1000).toLocaleString()}</time>
-    </div>`).join(''):t('empty')}</div>`;
+  const fd = new FormData(); fd.append('pdf', f); fd.append('title', document.getElementById('title').value);
+  msg.textContent = 'جاري الرفع...';
+  const r = await fetch('/api/admin/upload',{method:'POST',body:fd});
+  const j = await r.json();
+  msg.style.color = j.ok ? '#2fbf71' : '#e05c5c';
+  msg.textContent = j.ok ? '✅ تم الرفع' : '❌ ' + j.error;
 }
 
-themeBtn.textContent = document.documentElement.dataset.theme==='dark'?'☀️':'🌙';
-langBtn.textContent = lang==='ar'?'EN':'ع';
-boot();
+loginView();
 </script>
 </body>
 </html>

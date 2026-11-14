@@ -179,6 +179,24 @@ def upload():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.post("/api/script_upload")
+def script_upload():
+    if request.json.get("secret") != app.secret_key:
+        return jsonify({"error": "Unauthorized"}), 401
+    d = request.json
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO books VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (d["bid"], d["title"], d["author"], d["subject"], d["url"], d["size"], d["pages"], int(time.time())))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.get("/")
 def home():
     return send_from_directory("static", "index.html")
