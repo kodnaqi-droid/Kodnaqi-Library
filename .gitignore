@@ -1,0 +1,14 @@
+# ملفات الحماية وقاعدة البيانات
+library.db
+keys.json
+.kq_secret
+email_config.json
+.env
+
+# مجلد الكتب (الملفات الثقيلة)
+books/
+
+# ملفات بايثون المؤقتة
+__pycache__/
+*.pyc
+*.pyo
