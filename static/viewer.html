@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KodNaqi Reader</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { margin: 0; background: #0f172a; padding-top: 55px; }
+  #bar { position: fixed; top: 0; left: 0; right: 0; background: var(--card); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 999; }
+  #bar button { width: auto; padding: 6px 14px; font-size: 13px; }
+  #pages { display: flex; flex-direction: column; align-items: center; padding-bottom: 30px; gap: 12px; }
+  canvas { background: #fff; box-shadow: 0 0 10px rgba(0,0,0,.5); border-radius: 4px; }
+  .loading-text { text-align: center; margin-top: 30px; color: var(--accent); font-size: 15px; }
+</style>
+<script>
+document.documentElement.dataset.theme=localStorage.getItem('kq-theme')||'dark';
+var l=localStorage.getItem('kq-lang')||'ar';
+document.documentElement.lang=l;document.documentElement.dir=l==='ar'?'rtl':'ltr';
+</script>
+</head>
+<body>
+<div id="bar">
+  <button onclick="history.back()" id="backBtn">⬅</button>
+  <span id="info" class="muted" style="font-size:12px">جاري التحميل...</span>
+  <div class="ctrl">
+    <button onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</div>
+<div id="pages">
+  <div id="loadingMsg" class="loading-text">⏳ يرجى الانتظار، جاري معالجة النصوص...</div>
+</div>
+<script src="/static/pdf.min.js"></script>
+<script src="/static/pdf.worker.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='/static/pdf.worker.min.js';
+const id=new URLSearchParams(location.search).get('id');
+const ar=document.documentElement.lang==='ar';
+backBtn.textContent=ar?'⬅ رجوع':'⬅ Back';
+function toggleTheme(){const th=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=th;localStorage.setItem('kq-theme',th);themeBtn.textContent=th==='dark'?'☀️':'🌙';}
+themeBtn.textContent=document.documentElement.dataset.theme==='dark'?'☀️':'🌙';
+
+(async()=>{
+  try{
+    const resp=await fetch('/api/book/'+id+'/pdf');
+    if(!resp.ok){document.getElementById('loadingMsg').textContent='⚠️ فشل تحميل الكتاب';return;}
+    const buf=await resp.arrayBuffer();
+    
+    const pdf=await pdfjsLib.getDocument({
+      data: buf,
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
+      disableFontFace: true,  // 👈 إجبار المتصفح على تجاهل الخطوط التالفة
+      useSystemFonts: true    // 👈 استخدام خطوط الهاتف
+    }).promise;
+    
+    document.getElementById('loadingMsg').style.display = 'none';
+    info.textContent=pdf.numPages+(ar?' صفحة':' pages');
+    
+    const cont=document.getElementById('pages');
+    const outputScale = window.devicePixelRatio || 1;
+    const containerWidth = window.innerWidth - 20; 
+    
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const unscaledViewport = page.getViewport({scale: 1});
+      const scale = containerWidth / unscaledViewport.width;
+      const viewport = page.getViewport({scale: scale});
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = Math.floor(viewport.width) + "px";
+      canvas.style.height = Math.floor(viewport.height) + "px";
+      
+      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+      cont.appendChild(canvas);
+      
+      await page.render({canvasContext: context, transform: transform, viewport: viewport}).promise;
+    }
+  }catch(e){
+    document.getElementById('loadingMsg').textContent='⚠️ خطأ: '+e.message;
+  }
+})();
+</script>
+</body>
+</html>

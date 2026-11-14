@@ -1,0 +1,5 @@
+Flask
+pypdf
+vercel-blob
+psycopg2-binary
+python-dotenv

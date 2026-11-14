@@ -1,0 +1,10 @@
+{
+  "name": "KodNaqi Library",
+  "short_name": "KQ Library",
+  "start_url": "/static/index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "dir": "rtl",
+  "lang": "ar"
+}
