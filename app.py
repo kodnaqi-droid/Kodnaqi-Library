@@ -1,7 +1,7 @@
 import os, io, time, uuid, requests
 from functools import wraps
 from flask import Flask, request, jsonify, send_file, session, send_from_directory
-import pg8000.dbapi
+import pg8000.native
 from urllib.parse import urlparse
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import FreeText
@@ -22,7 +22,7 @@ def db():
 def init_db():
     try:
         with db() as conn:
-            with conn.cursor() as cur:
+            with conn:
                 cur.execute("""CREATE TABLE IF NOT EXISTS books (
                     id TEXT PRIMARY KEY, title TEXT, author TEXT, subject TEXT,
                     file_url TEXT, size INTEGER, pages INTEGER DEFAULT 0, uploaded INTEGER)""")
@@ -49,7 +49,7 @@ def login():
     key = (request.json.get("key") or "").strip()
     try:
         with db() as conn:
-            with conn.cursor() as cur:
+            with conn:
                 cur.execute("SELECT name, phone FROM student_keys WHERE key=%s AND active=1", (key,))
                 row = cur.fetchone()
         if row:
@@ -69,7 +69,7 @@ def logout():
 def books():
     try:
         with db() as conn:
-            with conn.cursor() as cur:
+            with conn:
                 cur.execute("SELECT id, title, author, subject, size, pages, uploaded FROM books ORDER BY uploaded DESC")
                 rows = cur.fetchall()
         cols = ["id", "title", "author", "subject", "size", "pages", "uploaded"]
@@ -82,7 +82,7 @@ def books():
 def get_pdf(bid):
     try:
         with db() as conn:
-            with conn.cursor() as cur:
+            with conn:
                 cur.execute("SELECT title, file_url FROM books WHERE id=%s", (bid,))
                 row = cur.fetchone()
         if not row: return jsonify({"error": "غير موجود"}), 404
@@ -122,7 +122,7 @@ def upload():
     except: pass
     try:
         with db() as conn:
-            with conn.cursor() as cur:
+            with conn:
                 cur.execute("INSERT INTO books VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
                             (bid, request.form.get("title","كتاب"), request.form.get("author",""),
                              request.form.get("subject",""), file_url, size, pages, int(time.time())))
