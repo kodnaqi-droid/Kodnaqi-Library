@@ -6,11 +6,18 @@
 <title>KodNaqi Reader</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
-  body { margin: 0; background: #0f172a; padding-top: 55px; }
+  body { margin: 0; background: #0f172a; padding-top: 55px; overflow-x: hidden; }
   #bar { position: fixed; top: 0; left: 0; right: 0; background: var(--card); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 999; }
   #bar button { width: auto; padding: 6px 14px; font-size: 13px; }
-  #pages { display: flex; flex-direction: column; align-items: center; padding-bottom: 30px; gap: 12px; }
+  
+  #pages-container { position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 30px; gap: 12px; }
   canvas { background: #fff; box-shadow: 0 0 10px rgba(0,0,0,.5); border-radius: 4px; }
+  .page-placeholder { width: 100%; max-width: 1000px; background: #1e293b; display: flex; justify-content: center; align-items: center; color: #64748b; border-radius: 4px; }
+  
+  /* طبقة العلامة المائية */
+  #watermark-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; overflow: hidden; }
+  .watermark-text { position: absolute; color: rgba(150, 150, 150, 0.25); font-size: 18px; font-weight: bold; transform: rotate(-30deg); white-space: nowrap; font-family: sans-serif; }
+  
   .loading-text { text-align: center; margin-top: 30px; color: var(--accent); font-size: 15px; }
 </style>
 <script>
@@ -27,9 +34,12 @@ document.documentElement.lang=l;document.documentElement.dir=l==='ar'?'rtl':'ltr
     <button onclick="toggleTheme()" id="themeBtn">🌙</button>
   </div>
 </div>
-<div id="pages">
-  <div id="loadingMsg" class="loading-text">⏳ يرجى الانتظار، جاري معالجة النصوص...</div>
+
+<div id="pages-container">
+  <div id="loadingMsg" class="loading-text">⏳ جاري تحميل الكتاب (سريع جداً الآن)...</div>
+  <div id="watermark-layer"></div>
 </div>
+
 <script src="/static/pdf.min.js"></script>
 <script src="/static/pdf.worker.min.js"></script>
 <script>
@@ -42,45 +52,83 @@ themeBtn.textContent=document.documentElement.dataset.theme==='dark'?'☀️':'�
 
 (async()=>{
   try{
-    const resp=await fetch('/api/book/'+id+'/pdf');
-    if(!resp.ok){document.getElementById('loadingMsg').textContent='⚠️ فشل تحميل الكتاب';return;}
-    const buf=await resp.arrayBuffer();
+    // 1. جلب بيانات الملف واسم الطالب
+    const detailsRes = await fetch('/api/book/'+id+'/pdf');
+    const details = await detailsRes.json();
+    if(details.error) throw new Error(details.error);
+    
+    // إضافة العلامة المائية (تكرار النص على الشاشة)
+    const wmLayer = document.getElementById('watermark-layer');
+    const wmText = `${details.name} - ${details.phone} - KodNaqi Library`;
+    for(let i=0; i<100; i++) {
+        const span = document.createElement('div');
+        span.className = 'watermark-text';
+        span.textContent = wmText;
+        span.style.top = (Math.random() * 100) + '%';
+        span.style.left = (Math.random() * 100) + '%';
+        wmLayer.appendChild(span);
+    }
+
+    // 2. جلب ملف الـ PDF مباشرة من السحابة (بدون المرور بالسيرفر)
+    const pdfData = await fetch(details.url).then(res => res.arrayBuffer());
     
     const pdf=await pdfjsLib.getDocument({
-      data: buf,
+      data: pdfData,
       cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
       cMapPacked: true,
       standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
-      disableFontFace: true,  // 👈 إجبار المتصفح على تجاهل الخطوط التالفة
-      useSystemFonts: true    // 👈 استخدام خطوط الهاتف
+      disableFontFace: true,
+      useSystemFonts: true
     }).promise;
     
     document.getElementById('loadingMsg').style.display = 'none';
     info.textContent=pdf.numPages+(ar?' صفحة':' pages');
     
-    const cont=document.getElementById('pages');
-    const outputScale = window.devicePixelRatio || 1;
-    const containerWidth = window.innerWidth - 20; 
+    const cont=document.getElementById('pages-container');
+    const containerWidth = window.innerWidth - 20;
     
-    for(let p=1;p<=pdf.numPages;p++){
+    // 3. تجهيز الصفحات (Lazy Loading)
+    for(let p=1; p<=pdf.numPages; p++){
       const page=await pdf.getPage(p);
-      const unscaledViewport = page.getViewport({scale: 1});
-      const scale = containerWidth / unscaledViewport.width;
-      const viewport = page.getViewport({scale: scale});
+      const viewport = page.getViewport({scale: 1});
+      const scale = containerWidth / viewport.width;
+      const finalViewport = page.getViewport({scale: scale});
       
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+      const div = document.createElement('div');
+      div.className = 'page-placeholder';
+      div.style.height = Math.floor(finalViewport.height) + 'px';
+      div.textContent = '...';
+      // إدراج الصفحة قبل طبقة العلامة المائية
+      cont.insertBefore(div, wmLayer);
       
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = Math.floor(viewport.width) + "px";
-      canvas.style.height = Math.floor(viewport.height) + "px";
-      
-      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
-      cont.appendChild(canvas);
-      
-      await page.render({canvasContext: context, transform: transform, viewport: viewport}).promise;
+      div.renderPage = async () => {
+        if (div.dataset.rendered) return;
+        div.dataset.rendered = 'true';
+        div.textContent = '';
+        
+        const canvas = document.createElement('canvas');
+        canvas.style.width = Math.floor(finalViewport.width) + "px";
+        canvas.style.height = Math.floor(finalViewport.height) + "px";
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(finalViewport.width * outputScale);
+        canvas.height = Math.floor(finalViewport.height * outputScale);
+        
+        const ctx = canvas.getContext('2d');
+        const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+        
+        div.appendChild(canvas);
+        await page.render({canvasContext: ctx, transform: transform, viewport: finalViewport}).promise;
+      };
     }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.renderPage();
+      });
+    }, { rootMargin: "300px" });
+
+    document.querySelectorAll('.page-placeholder').forEach(el => observer.observe(el));
+    
   }catch(e){
     document.getElementById('loadingMsg').textContent='⚠️ خطأ: '+e.message;
   }

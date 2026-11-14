@@ -3,9 +3,9 @@ from functools import wraps
 from flask import Flask, request, jsonify, send_file, session, send_from_directory
 import pg8000.dbapi
 from urllib.parse import urlparse
-from pypdf import PdfReader, PdfWriter
-from pypdf.annotations import FreeText
-from pypdf.generic import RectangleObject
+
+
+
 from vercel_blob import put
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
@@ -93,38 +93,21 @@ def get_pdf(bid):
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT title, file_url FROM books WHERE id=%s", (bid,))
+        cur.execute("SELECT file_url FROM books WHERE id=%s", (bid,))
         row = cur.fetchone()
         cur.close()
         conn.close()
         
         if not row: return jsonify({"error": "غير موجود"}), 404
-        title, file_url = row
-        
-        r = requests.get(file_url)
-        if r.status_code != 200: return jsonify({"error": "فشل تحميل الملف"}), 500
         
         s = session["student"]
-        wm = f"{s['name']} - {s['phone']} - KodNaqi Library"
-        
-        reader = PdfReader(io.BytesIO(r.content))
-        writer = PdfWriter()
-        writer.append(reader)
-        
-        for i, page in enumerate(reader.pages):
-            w, h = float(page.mediabox.width), float(page.mediabox.height)
-            for (x, y) in [(w*0.15, h*0.45), (w*0.15, h*0.75)]:
-                ann = FreeText(
-                    rect=RectangleObject([x, y, x+w*0.6, y+24]), text=wm,
-                    font="Helvetica", font_size="7pt", font_color="999999",
-                    border_color=None, background_color=None
-                )
-                writer.add_annotation(page_number=i, annotation=ann)
-                
-        buf = io.BytesIO()
-        writer.write(buf)
-        buf.seek(0)
-        return send_file(buf, mimetype="application/pdf", as_attachment=False, download_name=f"{title}.pdf")
+        return jsonify({
+            "url": row[0],
+            "name": s["name"],
+            "phone": s["phone"]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     except Exception as e:
         return jsonify({"error": f"Error: {str(e)}"}), 500
 
